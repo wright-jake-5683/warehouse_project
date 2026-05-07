@@ -2,13 +2,28 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
-    
-    map_file = os.path.join(get_package_share_directory('map_server'), 'config', 'warehouse_map_sim.yaml')
+    package_description = "map_server"
+
+    map_file_arg = DeclareLaunchArgument('map_file')
+    map_file_f = LaunchConfiguration('map_file')
+
+    map_file = PathJoinSubstitution([
+        FindPackageShare(package_description),
+        'config',
+        map_file_f
+    ])
+
     rviz_config = os.path.join(get_package_share_directory('map_server'), 'rviz', 'map_display.rviz')
 
     return LaunchDescription([
+        map_file_arg,
+
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
