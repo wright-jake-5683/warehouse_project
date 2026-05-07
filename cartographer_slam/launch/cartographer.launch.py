@@ -22,6 +22,8 @@ def generate_launch_description():
         msg=["use_sim_time set to: ", PythonExpression(["str('", use_sim_time_str, "'.lower() in ['true', '1', 'yes'])"])]
     )
 
+    rviz_config = os.path.join(get_package_share_directory('cartographer_slam'), 'rviz', 'mapping.rviz')
+
     return LaunchDescription([
         use_sim_time_arg,
         use_sim_time_message,
@@ -43,4 +45,13 @@ def generate_launch_description():
             parameters=[{'use_sim_time': use_sim_time}],
             arguments=['-resolution', '0.05', '-publish_period_sec', '1.0']
         ),
+
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            parameters=[{'use_sim_time': True}],
+            arguments = ['-d', rviz_config]
+        ), 
     ]) 
