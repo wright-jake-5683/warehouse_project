@@ -10,7 +10,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     package_description = "map_server"
 
-    map_file_arg = DeclareLaunchArgument('map_file')
+    map_file_arg = DeclareLaunchArgument('map_file', default_value="warehouse_map_sim.yaml")
     map_file_f = LaunchConfiguration('map_file')
 
     map_file = PathJoinSubstitution([
@@ -23,15 +23,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         map_file_arg,
-
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_transform_publisher_turtle_odom',
-            output='screen',
-            emulate_tty=True,
-            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
-        ),
 
         Node(
             package='nav2_map_server',

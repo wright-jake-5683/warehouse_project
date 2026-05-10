@@ -16,7 +16,8 @@ def generate_launch_description():
 
 
     cartographer_config_dir = os.path.join(get_package_share_directory('cartographer_slam'), 'config')
-    configuration_basename = 'cartographer_sim.lua'
+    #configuration_basename = 'cartographer_sim.lua'
+    configuration_basename = 'cartographer_real.lua'
 
     use_sim_time_message = LogInfo(
         msg=["use_sim_time set to: ", PythonExpression(["str('", use_sim_time_str, "'.lower() in ['true', '1', 'yes'])"])]
