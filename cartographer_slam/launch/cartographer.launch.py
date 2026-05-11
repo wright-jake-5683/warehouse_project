@@ -7,7 +7,7 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.actions import LogInfo
 
 def generate_launch_description():
-    use_sim_time_arg = DeclareLaunchArgument('use_sim_time', default_value='true')
+    use_sim_time_arg = DeclareLaunchArgument('use_sim_time')
     use_sim_time_str = LaunchConfiguration('use_sim_time')
 
     # PythonExpression is an evaulation function. So use_sim_time equals true or false based on the expression.
@@ -52,7 +52,7 @@ def generate_launch_description():
             executable='rviz2',
             name='rviz2',
             output='screen',
-            parameters=[{'use_sim_time': True}],
+            parameters=[{'use_sim_time': use_sim_time}],
             arguments = ['-d', rviz_config]
         ), 
     ]) 

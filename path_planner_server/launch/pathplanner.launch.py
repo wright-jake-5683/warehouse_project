@@ -18,17 +18,37 @@ def generate_launch_description():
         msg=["use_sim_time set to: ", PythonExpression(["str('", use_sim_time_str, "'.lower() in ['true', '1', 'yes'])"])]
     )
 
-    controller_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'controller_sim.yaml')
-    bt_navigator_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'bt_navigator_sim.yaml')
-    planner_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'planner_server_sim.yaml')
-    recovery_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'recovery_sim.yaml')
 
-    """
-    controller_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'controller_real.yaml')
-    bt_navigator_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'bt_navigator_real.yaml')
-    planner_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'planner_server_real.yaml')
-    recovery_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'recovery_real.yaml')
-    """
+    rviz_config = os.path.join(get_package_share_directory('path_planner_server'), 'rviz', 'map_display.rviz')
+    
+    controller_yaml_sim = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'controller_sim.yaml')
+    bt_navigator_yaml_sim = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'bt_navigator_sim.yaml')
+    planner_yaml_sim = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'planner_server_sim.yaml')
+    recovery_yaml_sim = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'recovery_sim.yaml')
+    
+    
+    controller_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'controller_real.yaml')
+    bt_navigator_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'bt_navigator_real.yaml')
+    planner_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'planner_server_real.yaml')
+    recovery_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'recovery_real.yaml')
+    
+
+    controller_config = PythonExpression([
+        f"'{controller_yaml_sim}' if ", use_sim_time, f" == True else '{controller_yaml_real}'"
+    ])
+    bt_navigator_config = PythonExpression([
+        f"'{bt_navigator_yaml_sim}' if ", use_sim_time, f" == True else '{bt_navigator_yaml_real}'"
+    ])
+    planner_config = PythonExpression([
+        f"'{planner_yaml_sim}' if ", use_sim_time, f" == True else '{planner_yaml_real}'"
+    ])
+    recovery_config = PythonExpression([
+        f"'{recovery_yaml_sim}' if ", use_sim_time, f" == True else '{recovery_yaml_real}'"
+    ])
+
+    cmd_topic = PythonExpression([
+        "'/diffbot_base_controller/cmd_vel_unstamped' if ", use_sim_time, " == True else '/cmd_vel'"
+    ])
 
     return LaunchDescription([
         use_sim_time_arg,
@@ -39,8 +59,8 @@ def generate_launch_description():
             executable='controller_server',
             name='controller_server',
             output='screen',
-            parameters=[controller_yaml],
-            remappings=[('cmd_vel', '/diffbot_base_controller/cmd_vel_unstamped')],
+            parameters=[{'use_sim_time': use_sim_time}, controller_config],
+            remappings=[('cmd_vel', cmd_topic)],
         ),
 
         Node(
@@ -48,13 +68,14 @@ def generate_launch_description():
             executable='planner_server',
             name='planner_server',
             output='screen',
-            parameters=[planner_yaml]),
+            parameters=[{'use_sim_time': use_sim_time}, planner_config]
+        ),
             
         Node(
             package='nav2_behaviors',
             executable='behavior_server',
             name='recoveries_server',
-            parameters=[recovery_yaml],
+            parameters=[{'use_sim_time': use_sim_time}, recovery_config],
             output='screen'),
 
         Node(
@@ -62,14 +83,15 @@ def generate_launch_description():
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
-            parameters=[bt_navigator_yaml]),
+            parameters=[{'use_sim_time': use_sim_time}, bt_navigator_config]
+        ),
 
         Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_mapper',
             output='screen',
-            parameters=[{'use_sim_time': True},
+            parameters=[{'use_sim_time': use_sim_time},
                         {'autostart': True},
                         {'node_names': [
                                         'planner_server',
@@ -77,5 +99,14 @@ def generate_launch_description():
                                         'recoveries_server',
                                         'bt_navigator'
                         ]}
-            ]),      
+            ]),
+
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}],
+            arguments = ['-d', rviz_config]
+        ),       
     ])

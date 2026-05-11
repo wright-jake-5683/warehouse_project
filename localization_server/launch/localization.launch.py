@@ -3,14 +3,14 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     package_description = "map_server"
 
-    map_file_arg = DeclareLaunchArgument('map_file', default_value="warehouse_map_sim.yaml")
+    map_file_arg = DeclareLaunchArgument('map_file')
     map_file_f = LaunchConfiguration('map_file')
 
     map_file = PathJoinSubstitution([
@@ -20,8 +20,20 @@ def generate_launch_description():
     ])
 
     rviz_config = os.path.join(get_package_share_directory('localization_server'), 'rviz', 'map_display.rviz')
-    amcl_config = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_sim.yaml')
-    #amcl_config = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_real.yaml')
+    amcl_config_sim = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_sim.yaml')
+    amcl_config_real = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_real.yaml')
+
+    amcl_config = PythonExpression([
+        f"'{amcl_config_sim}' if '", map_file_f, f"' == 'warehouse_map_sim.yaml' else '{amcl_config_real}'"
+    ])
+
+    odom_frame = PythonExpression([
+        "'odom' if '", map_file_f, "' == 'warehouse_map_sim.yaml' else 'robot_odom'"
+    ])
+    
+    sim_time = PythonExpression([
+        "'", map_file_f, "'== 'warehouse_map_sim.yaml'"
+    ])
 
     return LaunchDescription([
         map_file_arg,
@@ -32,7 +44,7 @@ def generate_launch_description():
             name='static_transform_publisher',
             output='screen',
             emulate_tty=True,
-            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+            arguments=['0', '0', '0', '0', '0', '0', 'map', odom_frame]
         ),
 
         Node(
@@ -40,9 +52,9 @@ def generate_launch_description():
             executable='map_server',
             name='map_server',
             output='screen',
-            parameters=[{'use_sim_time': True}, 
-                        {'yaml_filename': map_file} 
-            ]),
+            parameters=[{'use_sim_time': sim_time}, 
+                        {'yaml_filename': map_file}]
+        ),
 
          Node(
             package='nav2_amcl',
@@ -58,7 +70,7 @@ def generate_launch_description():
             executable='lifecycle_manager',
             name='lifecycle_manager_mapper',
             output='screen',
-            parameters=[{'use_sim_time': True},
+            parameters=[{'use_sim_time': sim_time},
                         {'autostart': True},
                         {'node_names': ['map_server',
                                         'amcl'
@@ -70,7 +82,7 @@ def generate_launch_description():
             executable='rviz2',
             name='rviz2',
             output='screen',
-            parameters=[{'use_sim_time': True}],
+            parameters=[{'use_sim_time': sim_time}],
             arguments = ['-d', rviz_config]
         ),            
     ])
