@@ -5,6 +5,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, PointStamped
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
 from nav2_apps_interfaces.srv import GoToLoading
 from nav2_apps.helpers.laser_manager import LaserManager
 from nav2_apps.helpers.tf_manager import TfManager
@@ -51,6 +52,11 @@ class ShelfHandler(Node):
             callback_group=self.cb_group  # ← allows laser to fire during service callback
         )
 
+        self.odom_subscriber = self.create_subscription(
+            Odometry, '/odom', self.odom_callback, 10,
+            callback_group=self.cb_group # ← allows odom to fire during service callback
+        )
+
         self.service_ = self.create_service(
             GoToLoading, '/approach_shelf', self.service_callback,
             callback_group=self.cb_group  # ← allows service to run alongside other callbacks
@@ -61,6 +67,10 @@ class ShelfHandler(Node):
     def laser_callback(self, msg):
         self.front_laser_reading = self.laser_helper_.read_front_laser(msg)
         self.laser_data = msg
+
+    def odom_callback(self, msg):
+        self.odom_data = msg
+        #self.get_logger().info(f"z: {self.odom_data.pose.pose.orientation.z}")
 
     def service_callback(self, request, response):
         try:
@@ -86,7 +96,7 @@ class ShelfHandler(Node):
                 response.complete = True
 
                 #Back up
-                velocity = self.robo_math_helper_.calculate_vel_by_distance(0.5, 5)
+                velocity = self.robo_math_helper_.calculate_vel_by_distance(0.55, 5)
                 start = time.monotonic()
                 duration = 5.0  # seconds
 
@@ -96,6 +106,7 @@ class ShelfHandler(Node):
                     self.cmd_publisher_.publish(msg)
 
             else:
+                self.approach_shipping()
                 self.get_logger().info("Lowering shelf...")
 
                 msg = String()
@@ -110,6 +121,30 @@ class ShelfHandler(Node):
         return response
 
 
+    def approach_shipping(self):
+        #Turn
+        turn_complete = False
+        while not turn_complete:
+            delta_z = abs(self.odom_data.pose.pose.orientation.z) - 0.62
+            #self.get_logger().info(f"delta_z: {delta_z}")
+            if delta_z < .03:
+                turn_complete = True
+            else:
+                msg = Twist()
+                msg.angular.z = -0.25
+                self.cmd_publisher_.publish(msg)
+
+        #Move forward slightly
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.5, 3)
+        start = time.monotonic()
+        duration = 5.0  # seconds
+
+        while time.monotonic() - start < duration:
+            msg = Twist()
+            msg.linear.x = velocity * 2.5
+            self.cmd_publisher_.publish(msg)
+
+
     def move_to_cart(self):
         rb1 = self.tf_manager_.get_tf_coords_parent_to_child("odom", "robot_base_footprint")
         cart = self.tf_manager_.get_tf_coords_parent_to_child("odom", "cart_frame")
@@ -121,7 +156,7 @@ class ShelfHandler(Node):
         dx = cart.x - rb1.x
         dy = cart.y - rb1.y
         distance = math.sqrt(dx**2 + dy**2)
-        self.get_logger().info(f"Distance from cart_frame: {distance}")
+        #self.get_logger().info(f"Distance from cart_frame: {round(distance * 100, 2)}cm")
 
         if distance > 0.175:
             msg = self.tf_manager_.move_subject_towards_target(rb1, cart)
@@ -135,6 +170,7 @@ class ShelfHandler(Node):
 
 
     def center_under_cart(self):
+        self.get_logger().info("RB1 in position, centering under shelf...")
         velocity = self.robo_math_helper_.calculate_vel_by_distance(0.3, 5)
         start = time.monotonic()
         duration = 5.0  # seconds

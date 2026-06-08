@@ -32,7 +32,6 @@ class ClientNode(Node):
         else:
             request.attach_to_shelf = False
 
-        print("sending request...")
         future = self.service_client.call_async(request)
         # need to spin navigator node here to make service call bc BasicNavigator only spins when a specific
         # internal function like goToPose(), etc, is called
@@ -47,7 +46,7 @@ class ClientNode(Node):
 
 
 
-shelf_footprint = "[ [-0.455, -0.45], [0.455, -0.45], [0.455, 0.45], [-0.455, 0.45] ]"
+shelf_footprint = "[ [-0.425, -0.4], [0.425, -0.4], [0.425, 0.4], [-0.425, 0.4] ]"
 robot_footprint = "[ [0.15, 0.0], [-0.105, 0.105], [-0.105, -0.105] ]"
 
 costmap_nodes = [
@@ -146,6 +145,11 @@ def go_to_loading_zone_task(client_node, navigator, positions, initial_pose):
             exit(1)
         
         switch_to_shelf_footprint(navigator)
+        # Clear stale costmap data
+        navigator.clearLocalCostmap()
+
+        # Give the costmap time to repopulate with current sensor data
+        time.sleep(1.0)  # adjust based on your costmap update_frequency
         return True
 
     elif result == TaskResult.CANCELED:
@@ -202,12 +206,38 @@ def go_to_shipping_zone_task(client_node, navigator, positions, initial_pose):
         print('RB1 has failed to reach shipping zone, shutting down...')
         exit(1)
 
+def go_to_initial_pose(navigator, initial_pose):
+    navigator.goToPose(initial_pose)
+
+    i = 0
+    while not navigator.isTaskComplete():
+        i = i + 1
+        feedback = navigator.getFeedback()
+        if feedback and i % 5 == 0:
+            print('Estimated time of arrival to initial position ' +
+                  '{0:.0f}'.format(
+                      Duration.from_msg(feedback.estimated_time_remaining).nanoseconds / 1e9)
+                  + ' seconds.')
+
+    result = navigator.getResult()
+    if result == TaskResult.SUCCEEDED:
+        print("RB1 has arrived at it's initial position")
+        return True
+
+    elif result == TaskResult.CANCELED:
+        print("RB1's return to it's initial position has been cancled...")
+        return False
+
+    elif result == TaskResult.FAILED:
+        print("RB1 has failed to reach it's intial position, shutting down...")
+        exit(1)
+
 
 
 def main():
     positions = {
-        "loading_position": [5.70347, -0.1821423, -0.807543, 0.70667],
-        "shipping_position": [2.25, 1.20, 0.702085, 0.70667]
+        "loading_position": [5.80, -0.1821423, -0.807543, 0.70667],
+        "shipping_position": [2.5, 0.00, 0.702085, 0.70667]
     }
 
     rclpy.init()
@@ -227,9 +257,9 @@ def main():
     initial_pose = PoseStamped()
     initial_pose.header.frame_id = 'map'
     initial_pose.header.stamp = navigator.get_clock().now().to_msg()
-    initial_pose.pose.position.x = 0.0149946
-    initial_pose.pose.position.y = -0.0060851
-    initial_pose.pose.orientation.z = -0.00340069
+    initial_pose.pose.position.x = -0.100
+    initial_pose.pose.position.y = 0.10
+    initial_pose.pose.orientation.z = 0.000
     initial_pose.pose.orientation.w = 1.0
     navigator.setInitialPose(initial_pose)
     navigator.get_logger().info(f"Initial Pose set at: x:{initial_pose.pose.position.x}, y:{initial_pose.pose.position.y}")
@@ -246,9 +276,10 @@ def main():
     if not shipped:
         print("Was unable to carry shelf to shipping. Returning to initial position...")
 
-    print("Navigating to Initial Pose...")
-    navigator.goToPose(initial_pose)
-    print("Ready for next task")
+    print("Navigating back to RB1's initial position...")
+    reset_complete = go_to_initial_pose(navigator, initial_pose)
+    if reset_complete:
+        print("Ready for next task")
 
     exit(0)
 

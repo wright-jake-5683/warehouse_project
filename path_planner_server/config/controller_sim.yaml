@@ -27,7 +27,7 @@ controller_server:
       debug_trajectory_details: True
       min_vel_x: 0.0
       min_vel_y: 0.0
-      max_vel_x: 0.26
+      max_vel_x: 0.45
       max_vel_y: 0.0
       max_vel_theta: 1.0
       min_speed_xy: 0.0
@@ -83,7 +83,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 1.5
-        inflation_radius: 0.25
+        inflation_radius: 0.175
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -96,6 +96,7 @@ local_costmap:
         observation_sources: scan
         scan:
           topic: /scan
+          min_obstacle_height: 0.3   # ignore anything below 30cm
           max_obstacle_height: 2.0
           clearing: True
           marking: True
