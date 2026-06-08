@@ -22,13 +22,15 @@ def generate_launch_description():
     rviz_config = os.path.join(get_package_share_directory('localization_server'), 'rviz', 'map_display.rviz')
     amcl_config_sim = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_sim.yaml')
     amcl_config_real = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_real.yaml')
+    filters_yaml = os.path.join(get_package_share_directory('localization_server'), 'config', 'filters.yaml')
+
 
     amcl_config = PythonExpression([
-        f"'{amcl_config_sim}' if '", map_file_f, f"' == 'warehouse_map_sim.yaml' else '{amcl_config_real}'"
+        f"'{amcl_config_sim}' if '", map_file_f, f"' == 'warehouse_map_keepout_sim.yaml' else '{amcl_config_real}'"
     ])
 
     odom_frame = PythonExpression([
-        "'odom' if '", map_file_f, "' == 'warehouse_map_sim.yaml' else 'robot_odom'"
+        "'odom' if '", map_file_f, "' == 'warehouse_map_keepout_sim.yaml' else 'robot_odom'"
     ])
     
     sim_time = PythonExpression([
@@ -55,6 +57,24 @@ def generate_launch_description():
             parameters=[{'use_sim_time': sim_time}, 
                         {'yaml_filename': map_file}]
         ),
+        Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='filter_mask_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]
+        ),
+
+        Node(
+            package='nav2_map_server',
+            executable='costmap_filter_info_server',
+            name='costmap_filter_info_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]
+        ),
+
 
          Node(
             package='nav2_amcl',
@@ -73,7 +93,9 @@ def generate_launch_description():
             parameters=[{'use_sim_time': sim_time},
                         {'autostart': True},
                         {'node_names': ['map_server',
-                                        'amcl'
+                                        'amcl',
+                                        'filter_mask_server',
+                                        'costmap_filter_info_server'
                         ]}
             ]),
 
