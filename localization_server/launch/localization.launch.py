@@ -22,7 +22,9 @@ def generate_launch_description():
     rviz_config = os.path.join(get_package_share_directory('localization_server'), 'rviz', 'map_display.rviz')
     amcl_config_sim = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_sim.yaml')
     amcl_config_real = os.path.join(get_package_share_directory('localization_server'), 'config', 'amcl_config_real.yaml')
-    filters_yaml = os.path.join(get_package_share_directory('localization_server'), 'config', 'filters.yaml')
+
+    filters_sim_yaml = os.path.join(get_package_share_directory('localization_server'), 'config', 'filters.yaml')
+    filters_real_yaml = os.path.join(get_package_share_directory('localization_server'), 'config', 'filters_real.yaml')
 
 
     amcl_config = PythonExpression([
@@ -35,6 +37,10 @@ def generate_launch_description():
     
     sim_time = PythonExpression([
         "'", map_file_f, "'== 'warehouse_map_sim.yaml'"
+    ])
+
+    filter_used = PythonExpression([
+        f"'{filters_sim_yaml}' if '", map_file_f, f"' == 'warehouse_map_keepout_sim.yaml' else '{filters_real_yaml}'"
     ])
 
     return LaunchDescription([
@@ -63,7 +69,7 @@ def generate_launch_description():
             name='filter_mask_server',
             output='screen',
             emulate_tty=True,
-            parameters=[filters_yaml]
+            parameters=[filter_used]
         ),
 
         Node(
@@ -72,7 +78,7 @@ def generate_launch_description():
             name='costmap_filter_info_server',
             output='screen',
             emulate_tty=True,
-            parameters=[filters_yaml]
+            parameters=[filter_used]
         ),
 
 

@@ -23,7 +23,8 @@ setup(
     entry_points={
         'console_scripts': [
             'move_shelf_to_ship = nav2_apps.move_shelf_to_ship:main',
-            'shelf_handler = nav2_apps.scripts.shelf_handler:main'
+            'shelf_handler = nav2_apps.scripts.shelf_handler:main',
+            'shelf_handler_real = nav2_apps.scripts.shelf_handler_real:main',
         ],
     },
 )

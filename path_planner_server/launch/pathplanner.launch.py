@@ -31,7 +31,7 @@ def generate_launch_description():
     bt_navigator_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'bt_navigator_real.yaml')
     planner_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'planner_server_real.yaml')
     recovery_yaml_real = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'recovery_real.yaml')
-    
+
 
     controller_config = PythonExpression([
         f"'{controller_yaml_sim}' if ", use_sim_time, f" == True else '{controller_yaml_real}'"
@@ -48,6 +48,10 @@ def generate_launch_description():
 
     cmd_topic = PythonExpression([
         "'/diffbot_base_controller/cmd_vel_unstamped' if ", use_sim_time, " == True else '/cmd_vel'"
+    ])
+
+    shelf_handler = PythonExpression([
+        "'shelf_handler' if ", use_sim_time, " == True else 'shelf_handler_real'"
     ])
 
     return LaunchDescription([
@@ -103,7 +107,7 @@ def generate_launch_description():
 
         Node(
             package='nav2_apps',
-            executable='shelf_handler',
+            executable=shelf_handler,
             name='shelf_handler_node',
             output='screen',
             parameters=[{'use_sim_time': use_sim_time}]
