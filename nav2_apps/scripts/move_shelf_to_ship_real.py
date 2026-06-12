@@ -236,8 +236,8 @@ def go_to_initial_pose(navigator, initial_pose):
 
 def main():
     positions = {
-        "loading_position": [4.69, -0.457, -0.907543, 0.70667],
-        "shipping_position": [2.33, 0.00, 0.702085, 0.70667]
+        "loading_position": [4.65, -0.457, -0.907543, 0.70667],
+        "shipping_position": [2.33, 0.10, 0.702085, 0.70667]
     }
 
     rclpy.init()

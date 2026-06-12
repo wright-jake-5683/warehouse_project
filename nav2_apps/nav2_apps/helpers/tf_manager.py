@@ -2,12 +2,13 @@ import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped, Twist, PointStamped, Pose
-from tf2_ros import StaticTransformBroadcaster, Buffer, TransformListener, TransformException
+from tf2_ros import StaticTransformBroadcaster, Buffer, TransformListener, TransformException, LookupException, ConnectivityException, ExtrapolationException
 import tf2_geometry_msgs  # needed for transform() with PointStamped
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
 from dataclasses import dataclass
 from typing import Optional
 import numpy as np
+from nav2_apps.helpers.robo_math import RoboMath
 
 
 @dataclass
@@ -50,6 +51,7 @@ class TfManager:
         self.static_broadcaster = StaticTransformBroadcaster(node)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, node)
+        self.robo_math_helper = RoboMath()
 
     def create_static_transform(self, new_transform: Transform) -> None:
         t = TransformStamped()
@@ -154,3 +156,27 @@ class TfManager:
         except TransformException as ex:
             self.node.get_logger().warn(f"Could not transform point: {ex}")
             return None
+
+    def get_frame_yaw_in_parent(self, child_frame, parent_frame):
+        """
+        Returns the yaw (rotation about Z) of child_frame expressed in parent_frame,
+        or None if the transform lookup fails.
+        """
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                parent_frame,
+                child_frame,
+                rclpy.time.Time(),  # latest available transform
+                timeout=rclpy.duration.Duration(seconds=0.5)
+            )
+        except (LookupException,
+                ConnectivityException,
+                ExtrapolationException) as e:
+            self.get_logger().warn(
+                f"Could not get transform from {child_frame} to {parent_frame}: {e}"
+            )
+            return None
+
+        q = transform.transform.rotation
+        yaw = self.robo_math_helper.quaternion_to_yaw(q)
+        return yaw

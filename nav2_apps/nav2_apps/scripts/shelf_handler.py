@@ -218,7 +218,19 @@ class ShelfHandler(Node):
     def create_cart_frame(self, legs):
         midpoint = self.robo_math_helper_.find_midpoint(legs[0].point, legs[1].point)
 
-        # 1. Transform midpoint from laser frame → odom frame
+        # Vector between the two legs (in laser frame)
+        dx = legs[1].point.x - legs[0].point.x
+        dy = legs[1].point.y - legs[0].point.y
+
+        # Angle of the line connecting the legs
+        leg_line_yaw = math.atan2(dy, dx)
+
+        # Yaw perpendicular to the leg line (pointing "into" the shelf)
+        # Add or subtract pi/2 depending on which direction you want cart_frame's x-axis to face
+        cart_yaw_in_laser = leg_line_yaw + math.pi / 2
+        cart_yaw_in_laser = math.atan2(math.sin(cart_yaw_in_laser), math.cos(cart_yaw_in_laser))
+
+        # 1. Transform midpoint from laser frame → map frame
         point_in_laser = PointStamped()
         point_in_laser.header.frame_id = "robot_front_laser_base_link"
         point_in_laser.header.stamp = self.get_clock().now().to_msg()
@@ -226,24 +238,32 @@ class ShelfHandler(Node):
         point_in_laser.point.y = midpoint.y
         point_in_laser.point.z = 0.0
 
-        point_in_odom = self.tf_manager_.transform_point(point_in_laser, "odom")
-        if point_in_odom is None:
+        point_in_map = self.tf_manager_.transform_point(point_in_laser, "odom")
+        if point_in_map is None:
             return
 
-        # 2. Publish static transform with odom as parent
+        # 2. Get the rotation of the laser frame relative to map, to convert the yaw too
+        laser_to_map_yaw = self.tf_manager_.get_frame_yaw_in_parent("robot_front_laser_base_link", "odom")
+        if laser_to_map_yaw is None:
+            return
+
+        cart_yaw_in_map = cart_yaw_in_laser + laser_to_map_yaw
+        cart_yaw_in_map = math.atan2(math.sin(cart_yaw_in_map), math.cos(cart_yaw_in_map))
+
+        # 3. Publish static transform with map as parent
         new_transform = Transform(
             parent_frame="odom",
             child_frame="cart_frame",
-            translation_x=point_in_odom.point.x,
-            translation_y=point_in_odom.point.y,
+            translation_x=point_in_map.point.x,
+            translation_y=point_in_map.point.y,
             translation_z=0.0,
             roll=0.0,
             pitch=0.0,
-            yaw=0.0
+            yaw=cart_yaw_in_map
         )
 
         self.tf_manager_.create_static_transform(new_transform)
-                
+                    
 
 
 def main(args=None):

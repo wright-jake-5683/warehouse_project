@@ -27,3 +27,12 @@ class RoboMath:
     @staticmethod
     def calculate_vel_by_distance(meters: float, seconds: float) -> float:
         return meters / seconds
+
+    @staticmethod
+    def quaternion_to_yaw(q):
+        """
+        Extract yaw (Z rotation) from a geometry_msgs/Quaternion.
+        """
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
