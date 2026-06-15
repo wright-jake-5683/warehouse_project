@@ -6,7 +6,6 @@ class LaserReadings:
         self.index = index
         self.reading = reading
 
-
 class LaserManager:
     def __init__(self):
         pass
@@ -25,7 +24,7 @@ class LaserManager:
     def cluster_laser_data(self, readings: list) -> list:
         clusters = []
         current_cluster = []
-        INTENSITY_THRESHOLD = 3850.0
+        INTENSITY_THRESHOLD = 3805
 
         for index, reading_value in enumerate(readings):
             if reading_value > INTENSITY_THRESHOLD:

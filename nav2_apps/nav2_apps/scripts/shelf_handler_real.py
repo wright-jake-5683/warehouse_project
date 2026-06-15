@@ -68,6 +68,7 @@ class ShelfHandler(Node):
         self.front_laser_reading = self.laser_helper_.read_front_laser(msg)
         self.laser_data = msg
 
+
     def odom_callback(self, msg):
         self.odom_data = msg
         #self.get_logger().info(f"z: {self.odom_data.pose.pose.orientation.z}")
@@ -76,8 +77,12 @@ class ShelfHandler(Node):
         try:
             self.get_logger().info("/approach shelf has been requested...")
 
-            #for value in self.laser_data.intensities:
-            #    self.get_logger().info(f"v: {value}")
+
+            #while 1==1:
+            #    for value in self.laser_data.intensities:
+            #        if value > 4000:
+            #            self.get_logger().info(f"{value} \n --------------------------")
+            #    time.sleep(3)
 
             if request.attach_to_shelf:
                 legs = self.detect_shelf_legs(self.laser_data)
@@ -94,26 +99,37 @@ class ShelfHandler(Node):
 
                 self.center_under_cart()
 
-                #msg = String()
-                #self.lift_up_publisher_.publish(msg)
-                #response.complete = True
+                count = 0
+                self.get_logger().warn("Lifting...")
+                while count < 20:
+                    #self.get_logger().warn("/evelvator_up called")
+                    msg = String()
+                    self.lift_up_publisher_.publish(msg)
+                    count += 1
+
+                time.sleep(5)    
+                response.complete = True
 
                 #Back up
-                #velocity = self.robo_math_helper_.calculate_vel_by_distance(0.55, 5)
-                #start = time.monotonic()
-                #duration = 5.0  # seconds
+                velocity = self.robo_math_helper_.calculate_vel_by_distance(0.55, 5)
+                start = time.monotonic()
+                duration = 5.0  # seconds
 
-                #while time.monotonic() - start < duration:
-                #    msg = Twist()
-                #    msg.linear.x = -velocity * 2.5
-                #    self.cmd_publisher_.publish(msg)
+                while time.monotonic() - start < duration:
+                    msg = Twist()
+                    msg.linear.x = -velocity * 2.5
+                    self.cmd_publisher_.publish(msg)
 
             else:
                 self.approach_shipping()
                 self.get_logger().info("Lowering shelf...")
 
-                msg = String()
-                self.lift_down_publisher_.publish(msg)
+                count = 0
+                while count < 10:
+                    self.get_logger().warn("/evelvator_down called")
+                    msg = String()
+                    self.lift_down_publisher_.publish(msg)
+                    count += 1
 
                 self.slide_away_from_cart()
                 response.complete = True
@@ -161,7 +177,7 @@ class ShelfHandler(Node):
         distance = math.sqrt(dx**2 + dy**2)
         self.get_logger().info(f"Distance from cart_frame: {round(distance * 100, 2)}cm")
 
-        if distance > 0.1:
+        if distance > 0.115:
             msg = self.tf_manager_.move_subject_towards_target(rb1, cart)
             self.cmd_publisher_.publish(msg)
         else:
@@ -178,7 +194,8 @@ class ShelfHandler(Node):
         # Ensure that RB1's yaw is in line with the cart_frame's yaw which was set to 0 when the frame was created
         tf = self.tf_manager_.get_tf_coords_parent_to_child("cart_frame", "robot_base_footprint")
         normalized_tf =  math.atan2(math.sin(tf.yaw), math.cos(tf.yaw))
-        rb1_inline = normalized_tf < -3.13 or normalized_tf > 3.13
+        rb1_inline = normalized_tf < -1.495 and normalized_tf > -1.505
+        #self.get_logger().info(f"cart to rb1 yaw: {normalized_tf}")
 
         msg = Twist()
         while not rb1_inline:
@@ -187,22 +204,22 @@ class ShelfHandler(Node):
 
             #self.get_logger().info(f"cart to rb1 yaw: {normalized_tf}")
 
-            if normalized_tf < 0 and normalized_tf > -3.13:
+            if normalized_tf > -1.495:
                 msg.angular.z = -.1
     
-            if normalized_tf > 0 and normalized_tf < 3.13:
+            if normalized_tf < -1.505:
                 msg.angular.z = .1
             
             #self.get_logger().warn(f"z: {msg.angular.z}")
             self.cmd_publisher_.publish(msg)
 
-            rb1_inline = normalized_tf < -3.13 or normalized_tf > 3.13
+            rb1_inline = normalized_tf < -1.495 and normalized_tf > -1.505
 
         msg.angular.z = 0.0
         self.cmd_publisher_.publish(msg)        
         self.get_logger().info("RB1 is lined up with shelf, centering under shelf...")
             
-        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.32, 3)
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.35, 5)
         start = time.monotonic()
         duration = 5.0  # seconds
 
@@ -215,7 +232,7 @@ class ShelfHandler(Node):
 
     def slide_away_from_cart(self):
         self.get_logger().info("Sliding away from cart...")
-        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.55, 5)
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.65, 5)
         start = time.monotonic()
         duration = 5.0  # seconds
 
@@ -227,14 +244,44 @@ class ShelfHandler(Node):
 
 
     def detect_shelf_legs(self, laser_data):
-        clusters = self.laser_helper_.cluster_laser_data(laser_data.intensities)
-        self.get_logger().info(f"clusters: {len(clusters)}")
-        if len(clusters) < 2:
+        self.get_logger().info("point hit")
+        attempts = 0
+        legs_detected = False
+        while attempts < 5 and not legs_detected:  
+            for value in self.laser_data.intensities:
+                    if value > 3790:
+                        self.get_logger().info(f"v: {value} \n --------------------------")
+
+            clusters = self.laser_helper_.cluster_laser_data(laser_data.intensities)
+            self.get_logger().warn(f"clusters: {len(clusters)}")
+            
+
+            # Check if clusters is empty
+            if not clusters or len(clusters) == 0:
+                #Move forward slightly
+                self.get_logger().warn("insufficent laser data to detect legs, moving RB1 forward slightly...")
+                velocity = self.robo_math_helper_.calculate_vel_by_distance(0.075, 3)
+                start = time.monotonic()
+                duration = 3.0  # seconds
+
+                msg = Twist()
+                while time.monotonic() - start < duration:
+                    msg.linear.x = velocity
+                    self.cmd_publisher_.publish(msg)
+
+                msg.linear.x = 0.0
+                self.cmd_publisher_.publish(msg)
+
+                attempts += 1
+            else:
+                legs_detected = True
+        
+        if not legs_detected:
             return []
 
         legs = []
         for cluster in clusters:
-            middle_index = sum(r.index for r in cluster) // len(cluster)
+            middle_index = self.refine_cluster_center(cluster)
             legs.append(LegData(index=middle_index))
 
         for leg in legs:
@@ -249,22 +296,27 @@ class ShelfHandler(Node):
         return legs
 
 
+    def refine_cluster_center(self, cluster, peak_fraction=0.5):
+        """
+        Dynamically threshold each cluster around its own peak intensity,
+        then take the angular span midpoint of the surviving readings.
+        """
+        peak = max(reading.reading for reading in cluster)
+        local_threshold = peak * peak_fraction
+
+        filtered = [reading for reading in cluster if reading.reading >= local_threshold]
+        if not filtered:
+            filtered = cluster  # fallback to full cluster if nothing survives
+
+        # Strategy 1: angular span midpoint on the filtered readings
+        first_index = filtered[0].index
+        last_index = filtered[-1].index
+        return (first_index + last_index) // 2
+
     def create_cart_frame(self, legs):
         midpoint = self.robo_math_helper_.find_midpoint(legs[0].point, legs[1].point)
 
-        # Vector between the two legs (in laser frame)
-        dx = legs[1].point.x - legs[0].point.x
-        dy = legs[1].point.y - legs[0].point.y
-
-        # Angle of the line connecting the legs
-        leg_line_yaw = math.atan2(dy, dx)
-
-        # Yaw perpendicular to the leg line (pointing "into" the shelf)
-        # Add or subtract pi/2 depending on which direction you want cart_frame's x-axis to face
-        cart_yaw_in_laser = leg_line_yaw + math.pi / 2
-        cart_yaw_in_laser = math.atan2(math.sin(cart_yaw_in_laser), math.cos(cart_yaw_in_laser))
-
-        # 1. Transform midpoint from laser frame → map frame
+        # 1. Transform midpoint from laser frame → odom frame
         point_in_laser = PointStamped()
         point_in_laser.header.frame_id = "robot_front_laser_base_link"
         point_in_laser.header.stamp = self.get_clock().now().to_msg()
@@ -272,28 +324,20 @@ class ShelfHandler(Node):
         point_in_laser.point.y = midpoint.y
         point_in_laser.point.z = 0.0
 
-        point_in_map = self.tf_manager_.transform_point(point_in_laser, "map")
-        if point_in_map is None:
+        point_in_odom = self.tf_manager_.transform_point(point_in_laser, "map")
+        if point_in_odom is None:
             return
 
-        # 2. Get the rotation of the laser frame relative to map, to convert the yaw too
-        laser_to_map_yaw = self.tf_manager_.get_frame_yaw_in_parent("robot_front_laser_base_link", "map")
-        if laser_to_map_yaw is None:
-            return
-
-        cart_yaw_in_map = cart_yaw_in_laser + laser_to_map_yaw
-        cart_yaw_in_map = math.atan2(math.sin(cart_yaw_in_map), math.cos(cart_yaw_in_map))
-
-        # 3. Publish static transform with map as parent
+        # 2. Publish static transform with odom as parent
         new_transform = Transform(
             parent_frame="map",
             child_frame="cart_frame",
-            translation_x=point_in_map.point.x,
-            translation_y=point_in_map.point.y + .25,
+            translation_x=point_in_odom.point.x,
+            translation_y=point_in_odom.point.y,
             translation_z=0.0,
             roll=0.0,
             pitch=0.0,
-            yaw=cart_yaw_in_map
+            yaw=0.0
         )
 
         self.tf_manager_.create_static_transform(new_transform)

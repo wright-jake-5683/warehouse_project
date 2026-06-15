@@ -5,6 +5,8 @@ from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.actions import LogInfo
+from launch.actions import SetEnvironmentVariable
+
 
 def generate_launch_description():
     use_sim_time_arg = DeclareLaunchArgument('use_sim_time', default_value='true')
@@ -55,6 +57,7 @@ def generate_launch_description():
     ])
 
     return LaunchDescription([
+        SetEnvironmentVariable('RCUTILS_COLORIZED_OUTPUT', '1'), # set colored log outputs
         use_sim_time_arg,
         use_sim_time_message,
 
