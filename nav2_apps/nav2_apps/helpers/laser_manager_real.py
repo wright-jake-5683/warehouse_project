@@ -21,21 +21,36 @@ class LaserManager:
         angle = msg.angle_min + (index * msg.angle_increment)
         return angle
 
-    def cluster_laser_data(self, readings: list) -> list:
+    def cluster_laser_data(self, readings: list, max_gap: int = 3) -> list:
+        """
+        Group laser intensity readings into clusters, tolerating dropped readings.
+
+        Readings within INTENSITY_THRESHOLD/INTENSITY_MAX are considered valid hits.
+        A new reading is added to the current cluster if it falls within `max_gap`
+        indices of the last reading in that cluster (allowing for dropped/missing
+        readings in between). Otherwise, the current cluster is closed out and a
+        new one is started.
+
+        Args:
+            readings: list of intensity values, indexed by position.
+            max_gap: maximum allowed index gap between consecutive readings in a
+                cluster before it's considered a break (default 2, i.e. up to
+                one dropped reading in between).
+        """
         clusters = []
         current_cluster = []
-        INTENSITY_THRESHOLD = 3805
+        INTENSITY_THRESHOLD = 4200
+        INTENSITY_MAX = 5050
 
         for index, reading_value in enumerate(readings):
-            if reading_value > INTENSITY_THRESHOLD:
-                if not current_cluster or index == current_cluster[-1].index + 1:
-                    reading = LaserReadings(index, reading_value)
-                    current_cluster.append(reading)
-                else:
+            if INTENSITY_THRESHOLD < reading_value < INTENSITY_MAX:
+                reading = LaserReadings(index, reading_value)
+
+                if current_cluster and index - current_cluster[-1].index > max_gap:
                     clusters.append(current_cluster)
                     current_cluster = []
-                    reading = LaserReadings(index, reading_value)
-                    current_cluster.append(reading)
+
+                current_cluster.append(reading)
 
         if current_cluster:
             clusters.append(current_cluster)

@@ -100,14 +100,14 @@ class ShelfHandler(Node):
                 self.center_under_cart()
 
                 count = 0
-                self.get_logger().warn("Lifting...")
-                while count < 20:
-                    #self.get_logger().warn("/evelvator_up called")
+                while count < 10:
+                    self.get_logger().warn(f"Litfing cart, {10-count} second(s) left...")
                     msg = String()
                     self.lift_up_publisher_.publish(msg)
                     count += 1
+                    time.sleep(1)
 
-                time.sleep(5)    
+          
                 response.complete = True
 
                 #Back up
@@ -122,14 +122,15 @@ class ShelfHandler(Node):
 
             else:
                 self.approach_shipping()
-                self.get_logger().info("Lowering shelf...")
+                self.get_logger().info("Approaching shipping position...")
 
                 count = 0
                 while count < 10:
-                    self.get_logger().warn("/evelvator_down called")
+                    self.get_logger().warn(f"Lowering cart, {10-count} second(s) left...")
                     msg = String()
                     self.lift_down_publisher_.publish(msg)
                     count += 1
+                    time.sleep(1)
 
                 self.slide_away_from_cart()
                 response.complete = True
@@ -154,9 +155,9 @@ class ShelfHandler(Node):
                 self.cmd_publisher_.publish(msg)
 
         #Move forward slightly
-        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.5, 3)
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(1.2, 7)
         start = time.monotonic()
-        duration = 5.0  # seconds
+        duration = 7.0  # seconds
 
         while time.monotonic() - start < duration:
             msg = Twist()
@@ -175,9 +176,9 @@ class ShelfHandler(Node):
         dx = cart.x - rb1.x
         dy = cart.y - rb1.y
         distance = math.sqrt(dx**2 + dy**2)
-        self.get_logger().info(f"Distance from cart_frame: {round(distance * 100, 2)}cm")
+        #self.get_logger().info(f"Distance from cart_frame: {round(distance * 100, 2)}cm")
 
-        if distance > 0.115:
+        if distance > 0.195:
             msg = self.tf_manager_.move_subject_towards_target(rb1, cart)
             self.cmd_publisher_.publish(msg)
         else:
@@ -219,7 +220,7 @@ class ShelfHandler(Node):
         self.cmd_publisher_.publish(msg)        
         self.get_logger().info("RB1 is lined up with shelf, centering under shelf...")
             
-        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.35, 5)
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.425, 5)
         start = time.monotonic()
         duration = 5.0  # seconds
 
@@ -232,7 +233,7 @@ class ShelfHandler(Node):
 
     def slide_away_from_cart(self):
         self.get_logger().info("Sliding away from cart...")
-        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.65, 5)
+        velocity = self.robo_math_helper_.calculate_vel_by_distance(0.85, 5)
         start = time.monotonic()
         duration = 5.0  # seconds
 
@@ -247,17 +248,17 @@ class ShelfHandler(Node):
         self.get_logger().info("point hit")
         attempts = 0
         legs_detected = False
-        while attempts < 5 and not legs_detected:  
-            for value in self.laser_data.intensities:
-                    if value > 3790:
-                        self.get_logger().info(f"v: {value} \n --------------------------")
+        while attempts < 3 and not legs_detected:  
+            #for value in self.laser_data.intensities:
+            #        if value > 3700:
+            #           self.get_logger().info(f"v: {value} \n --------------------------")
 
             clusters = self.laser_helper_.cluster_laser_data(laser_data.intensities)
             self.get_logger().warn(f"clusters: {len(clusters)}")
             
 
             # Check if clusters is empty
-            if not clusters or len(clusters) == 0:
+            if not clusters or len(clusters) < 2:
                 #Move forward slightly
                 self.get_logger().warn("insufficent laser data to detect legs, moving RB1 forward slightly...")
                 velocity = self.robo_math_helper_.calculate_vel_by_distance(0.075, 3)
@@ -296,7 +297,7 @@ class ShelfHandler(Node):
         return legs
 
 
-    def refine_cluster_center(self, cluster, peak_fraction=0.5):
+    def refine_cluster_center(self, cluster, peak_fraction=0.7):
         """
         Dynamically threshold each cluster around its own peak intensity,
         then take the angular span midpoint of the surviving readings.
@@ -307,6 +308,10 @@ class ShelfHandler(Node):
         filtered = [reading for reading in cluster if reading.reading >= local_threshold]
         if not filtered:
             filtered = cluster  # fallback to full cluster if nothing survives
+        
+        #for reading in filtered:
+        #    self.get_logger().warn(f"filtered reading: {reading.reading}")
+        #self.get_logger().info("-------------------------")
 
         # Strategy 1: angular span midpoint on the filtered readings
         first_index = filtered[0].index

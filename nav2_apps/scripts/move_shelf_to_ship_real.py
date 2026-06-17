@@ -187,11 +187,11 @@ def go_to_shipping_zone_task(client_node, navigator, positions, initial_pose):
     result = navigator.getResult()
     if result == TaskResult.SUCCEEDED:
         print('RB1 has arrived at the shipping zone. Releasing shelf...')
-        #success = client_node.call_service("drop")
+        success = client_node.call_service("drop")
 
-        #if not success:
-        #    print("Failed to drop shelf!")
-        #    exit(1)
+        if not success:
+            print("Failed to drop shelf!")
+            exit(1)
 
         switch_to_robot_footprint(navigator)
         return True
@@ -236,7 +236,7 @@ def go_to_initial_pose(navigator, initial_pose):
 
 def main():
     positions = {
-        "loading_position": [4.65, -0.7, -0.907543, 0.70667],
+        "loading_position": [4.60, -0.5, -0.907543, 0.70667],
         "shipping_position": [2.33, 0.185, 0.702085, 0.70667]
     }
 
@@ -272,14 +272,14 @@ def main():
     if not loaded:
         exit(1)
 
-    #shipped = go_to_shipping_zone_task(client_node, navigator, positions, initial_pose)
-    #if not shipped:
-    #    print("Was unable to carry shelf to shipping. Returning to initial position...")
+    shipped = go_to_shipping_zone_task(client_node, navigator, positions, initial_pose)
+    if not shipped:
+        print("Was unable to carry shelf to shipping. Returning to initial position...")
 
-    #print("Navigating back to RB1's initial position...")
-    #reset_complete = go_to_initial_pose(navigator, initial_pose)
-    #if reset_complete:
-    #    print("Ready for next task")
+    print("Navigating back to RB1's initial position...")
+    reset_complete = go_to_initial_pose(navigator, initial_pose)
+    if reset_complete:
+        print("Ready for next task")
 
     exit(0)
 
